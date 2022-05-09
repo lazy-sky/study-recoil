@@ -3,7 +3,8 @@ import { atom } from 'recoil'
 // TodoList
 export const todoListState = atom({
   key: 'todoListState',
-  default: [],
+  // TODO: storejs 써보기
+  default: JSON.parse(localStorage.getItem('recoilTodos')) || [],
 })
 
 export const todoListFilterState = atom({
