@@ -56,7 +56,7 @@ const TodoItem = ({ item }) => {
       />
       <input 
         type="checkbox" 
-        checked={item.isCompleted}
+        checked={item.isComplete}
         onChange={toggleTodoComplete}
       />
       <button type='button' onClick={deleteTodo}>X</button>
