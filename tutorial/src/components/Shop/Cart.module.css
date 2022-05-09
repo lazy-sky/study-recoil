@@ -1,0 +1,17 @@
+.cartList {
+  display: flex;
+  flex-direction: column;
+  margin: 12px;
+  border: 2px solid black;
+}
+
+.cartItem {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 8px;
+  border-bottom: 1px solid lightgray;
+}
+
+button {
+  margin: 0 8px;
+}

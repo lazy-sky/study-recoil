@@ -9,8 +9,10 @@
  */
 
 import { selector } from 'recoil'
-import { todoListFilterState, todoListState } from './atoms'
+import { cartItems, todoListFilterState, todoListState } from './atoms'
 
+
+// TodoList
 // todoListFilterState와 todoListState를 사용해서 필터링된 리스트를 파생하는 
 // filteredTodoListState를 구성할 수 있다.
 export const filteredTodoListState = selector({
@@ -46,6 +48,20 @@ export const todoListStatsState = selector({
       totalCompletedCount,
       totalUncompletedCount,
       percentCompleted,
+    }
+  }
+})
+
+// Shop with cart
+export const cartItemsState = selector({
+  key: 'cartItemsState',
+  get: ({ get }) => {
+    const totalCost = get(cartItems).reduce((acc, cur) => acc + cur.price * cur.count, 0)
+    const totalCount = get(cartItems).reduce((acc, cur) => acc + cur.count, 0)
+
+    return {
+      totalCost,
+      totalCount,
     }
   }
 })
