@@ -1,7 +1,6 @@
 import { useRecoilState } from 'recoil'
 import { todoListState } from '../../store/atoms'
 
-
 /**
  * TodoItem은 todo리스트의 값을 표시하는 동시에, 
  * 텍스트를 변경하고 항목을 삭제할 수 있다.
