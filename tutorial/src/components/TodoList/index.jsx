@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { useRecoilValue } from 'recoil'
+import store from 'storejs'
+
 import { filteredTodoListState } from '../../store/selectors'
 import TodoItem from './TodoItem'
 import TodoItemCreator from './TodoItemCreator'
@@ -11,7 +13,7 @@ const TodoList = () => {
 
   // TODO: react-use의 useMount 써보기
   useEffect(() => {
-    localStorage.setItem('recoilTodos', JSON.stringify(todoList))
+    store.set('recoilTodos', todoList)
   }, [todoList])
   
   return (

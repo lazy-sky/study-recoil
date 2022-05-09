@@ -1,10 +1,10 @@
+import store from 'storejs'
 import { atom } from 'recoil'
 
 // TodoList
 export const todoListState = atom({
   key: 'todoListState',
-  // TODO: storejs 써보기
-  default: JSON.parse(localStorage.getItem('recoilTodos')) || [],
+  default: store.get('recoilTodos')  || [],
 })
 
 export const todoListFilterState = atom({
