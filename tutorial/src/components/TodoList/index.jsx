@@ -12,9 +12,9 @@ const TodoList = () => {
   const todoList = useRecoilValue(filteredTodoListState)
 
   // TODO: react-use의 useMount 써보기
-  useEffect(() => {
-    store.set('recoilTodos', todoList)
-  }, [todoList])
+  // useEffect(() => {
+  //   store.set('recoilTodos', todoList)
+  // }, [todoList])
   
   return (
     <>

@@ -1,10 +1,11 @@
-import store from 'storejs'
 import { atom } from 'recoil'
+import { localStorageEffect } from './hooks'
 
 // TodoList
 export const todoListState = atom({
   key: 'todoListState',
-  default: store.get('recoilTodos')  || [],
+  default: [],
+  effects: [localStorageEffect('recoilTodos')]
 })
 
 export const todoListFilterState = atom({

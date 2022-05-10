@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { useRecoilState } from 'recoil'
+import store from 'storejs'
 import { cartItems } from './atoms'
 
 const cloneIndex = (items, id) => ({
@@ -47,4 +47,17 @@ export const useRemoveItem = () => {
 	return product => {
     setItems(items.filter((item) => item.id !== product.id))
 	}
+}
+
+export const localStorageEffect = key => ({ setSelf, onSet }) => {
+  const savedValue = store.get(key)
+  if (!!savedValue) {
+    setSelf(savedValue)
+  }
+
+  onSet((newValue, _, isReset) => {
+    isReset
+      ? store.remove(key)
+      : store.set(key, newValue)
+  })
 }
