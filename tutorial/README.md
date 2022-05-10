@@ -462,3 +462,137 @@ function UserInfo({userID}) {
 ### Query Refresh
 
 TODO: 
+
+## Atom Effects
+
+Atom Effects는 부수 효과를 관리하고 Recoil의 atom을 초기화 또는 동기화하기 위한 API다. 
+상태 지속성, 상태 동기화, 히스토리 관리, 로깅 등 유용한 기능을 가지고 있다. 
+이는 React effects와도 유사하지만, Atom effects는 atom의 정의의 일부로 정의되므로 각 atom의 자체적인 정책들을 지정하고 구성할 수 있다.
+
+Atom Effects는 `effects` 옵션을 통해 atoms에 연결되어 있다. 각각의 atom은 atom이 초기화 될 때 우선 순위에 따라 호출되는 atom effect 함수들의 배열을 참조할 수 있다. atom은 `RecoilRoot` 내에서 처음 사용될 때 초기화되지만, 만약 사용되지 않거나 정리되어 없어졌을 때 다시 초기화 될 수 있다. Atom Effect 함수는 cleanup의 부수효과를 관리하기 위해서 선택적 cleanup 핸들러를 리턴할 수도 있다.
+
+```js
+const myState = atom({
+  key: 'MyKey',
+  default: null,
+  effects: [
+    () => {
+      ...effect 1...
+      return () => ...cleanup effect 1...;
+    },
+    () => { ...effect 2... },
+  ],
+});
+```
+
+### Compared to React Effects
+
+Atom effects는 대부분의 경우 `useEffect`로 대체될 수 있다. 그러나 atom의 집합은 리액트 컨텍스트의 외부에서 생성되며, 특히 동적으로 생성된 atom의 경우 리액트 컴포넌트 내에서 관리하기 어려울 수 있다. 또한 초기 atom 값을 초기화하거나 SSR과 함께 사용될 수도 없다. 
+atom effects를 사용하면 effects와 atom의 정의를 함께 배치하게 된다. 
+
+```js
+const myState = atom({key: 'Key', default: null});
+
+function MyStateEffect(): React.Node {
+  const [value, setValue] = useRecoilState(myState);
+  useEffect(() => {
+    // Called when the atom value changes
+    store.set(value);
+    store.onChange(setValue);
+    return () => { store.onChange(null); }; // Cleanup effect
+  }, [value]);
+  return null;
+}
+
+function MyApp(): React.Node {
+  return (
+    <div>
+      <MyStateEffect />
+      ...
+    </div>
+  );
+}
+```
+
+### Logging Example
+
+TODO:
+
+### History Example
+
+TODO:
+
+### State Synchronization Example
+
+atom을 원격 데이터베이스, 로컬 스토리지 등 다른 상태의 로컬 캐기 값으로 사용할 수 있다. store의 값을 얻기 위해 `default` 프로퍼티와 selector를 이용해 atom의 기본값을 설정해 줄 수 있다. 그러나 이는 일회성 조회일 뿐이라서 store의 값이 변경된다면 atom의 값은 변경되지 않는다. 
+
+effects와 함께라면 store가 변경될 때마다 store를 구독하고 atom의 값을 업데이트할 수 있다. 
+
+`setSelf()`를 호출하는 것은 그 값으로 atom을 초기화하고 초기 렌더링에 이용된다. atom이 리셋되면 초기화된 값이 아니라 `default` 값으로 돌아간다.
+
+```js
+const syncStorageEffect = userID => ({setSelf, trigger}) => {
+  // 원격 저장소에 있는 상태로 atom 값을 초기화 
+  if (trigger === 'get') { // 비용이 큰 초기화 회피
+    setSelf(myRemoteStorage.get(userID)); // 초기화를 위해 동기적으로 호출
+  }
+
+  // 원격 저장소를 구독
+  myRemoteStorage.onChange(userID, userInfo => {
+    setSelf(userInfo); // Call asynchronously to change value
+  });
+
+  // 구독 해제
+  return () => {
+    myRemoteStorage.onChange(userID, null);
+  };
+};
+
+const userInfoState = atomFamily({
+  key: 'UserInfo',
+  default: null,
+  effects: userID => [
+    historyEffect(`${userID} user info`),
+    syncStorageEffect(userID),
+  ],
+});
+```
+
+## Write-Through Cache Example
+
+TODO:
+
+## Local Storage Persistence
+
+Atom Effects는 atom 상태를 브라우저 로컬 스토리지에서 유지하기 위해서 사용될 수 있다. `localStorage`는 동기식이므로 데이터를 `async`/`await` 혹은 `Promise` 없이 직접 받아올 수 있다.
+
+```js
+const localStorageEffect = key => ({setSelf, onSet}) => {
+  const savedValue = localStorage.getItem(key)
+  if (savedValue != null) {
+    setSelf(JSON.parse(savedValue));
+  }
+
+  onSet((newValue, _, isReset) => {
+    isReset
+      ? localStorage.removeItem(key)
+      : localStorage.setItem(key, JSON.stringify(newValue));
+  });
+};
+
+const currentUserIDState = atom({
+  key: 'CurrentUserID',
+  default: 1,
+  effects: [
+    localStorageEffect('current_user'),
+  ]
+});
+```
+
+### Asynchronous Storage Persistence
+
+TODO: 
+
+### Backword Compatibility
+
+TODO: 
