@@ -220,3 +220,245 @@ function CharacterCount() {
   return <>Character Count: {count}</>;
 }
 ```
+
+## Asynchronous Data Queries
+
+### Synchronous Example
+
+```js
+const currentUserIDState = atom({
+  key: 'CurrentUserID',
+  default: 1,
+});
+
+const currentUserNameState = selector({
+  key: 'CurrentUserName',
+  get: ({get}) => {
+    return tableOfUsers[get(currentUserIDState)].name;
+  },
+});
+
+function CurrentUserInfo() {
+  const userName = useRecoilValue(currentUserNameState);
+  return <div>{userName}</div>;
+}
+
+function MyApp() {
+  return (
+    <RecoilRoot>
+      <CurrentUserInfo />
+    </RecoilRoot>
+  );
+}
+```
+
+### Asynchronous Example
+
+user의 이름을 쿼리해야 한다면 `Promise`를 리턴하거나 `async` 함수를 사용하면 된다. 의존성에 하나라도 변경점이 생긴다면 selector는 새로운 쿼리를 재평가하고 재실행시킨다. 결과는 쿼리가 유니크한 인풋이 있을 때만 실행되도록 캐시된다.
+
+```js
+const currentUserNameQuery = selector({
+  key: 'CurrentUserName',
+  get: async ({get}) => {
+    const response = await myDBQuery({
+      userID: get(currentUserIDState),
+    });
+    return response.name;
+  },
+});
+
+function CurrentUserInfo() {
+  const userName = useRecoilValue(currentUserNameQuery);
+  return <div>{userName}</div>;
+}
+```
+
+비동기로 바뀌더라도 selector의 인터페이스는 동일하므로 컴포넌트에서는 selector를 사용하면서 동기 atom 상태, 파생된 selector 상태, 비동기 쿼리를 지원하는지 신경쓰지 않아도 된다.
+
+다만 React 렌더 함수가 동기이므로 promise가 resolve 되기 전에, 즉 보류중인 데이터를 다루기 위해 React Suspense와 함께 동작하도록 디자인되어 있다. 컴포넌트를 Suspense로 감싸 아직 보류중인 하위 항목들을 잡아내고 대체하기 위한 UI를 렌더한다.
+
+```js
+function MyApp() {
+  return (
+    <RecoilRoot>
+      <React.Suspense fallback={<div>Loading...</div>}>
+        <CurrentUserInfo />
+      </React.Suspense>
+    </RecoilRoot>
+  );
+}
+```
+
+### Error Handling
+
+selector는 컴포넌트에서 특정 값을 사용하려고 할 때 어떤 에러가 생길지에 대한 에러를 던질 수 있다. 
+React `ErrorBoundary`로 잡을 수 있다.
+
+```js
+const currentUserNameQuery = selector({
+  key: 'CurrentUserName',
+  get: async ({get}) => {
+    const response = await myDBQuery({
+      userID: get(currentUserIDState),
+    });
+    if (response.error) {
+      throw response.error;
+    }
+    return response.name;
+  },
+});
+
+function CurrentUserInfo() {
+  const userName = useRecoilValue(currentUserNameQuery);
+  return <div>{userName}</div>;
+}
+
+function MyApp() {
+  return (
+    <RecoilRoot>
+      <ErrorBoundary>
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <CurrentUserInfo />
+        </React.Suspense>
+      </ErrorBoundary>
+    </RecoilRoot>
+  );
+}
+```
+
+### Queries with Parameters
+
+파생된 상태만이 아닌 매개변수를 기반으로 쿼리하고 싶다면 `selectorFamily`를 사용할 수 있다.
+
+```js
+const userNameQuery = selectorFamily({
+  key: 'UserName',
+  get: (userID) => async () => {
+    const response = await myDBQuery({userID});
+    if (response.error) {
+      throw response.error;
+    }
+    return response.name;
+  },
+});
+
+function UserInfo({userID}) {
+  const userName = useRecoilValue(userNameQuery(userID));
+  return <div>{userName}</div>;
+}
+
+function MyApp() {
+  return (
+    <RecoilRoot>
+      <ErrorBoundary>
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <UserInfo userID={1} />
+          <UserInfo userID={2} />
+          <UserInfo userID={3} />
+        </React.Suspense>
+      </ErrorBoundary>
+    </RecoilRoot>
+  );
+}
+```
+
+### Data-Flow Graph
+
+쿼리를 selector로 모델링하면 상태와 파생된 상태, 그리고 쿼리를 혼합한 데이터 플로우 그래프를 만들 수 있다. 이 그래프는 상태가 업데이트 되면 리액트 컴포넌트를 업데이트하고 리렌더링한다.
+
+아래 예시는 최근 유저의 이름과 그들의 친구 리스트를 렌더링한다. 친구의 이름이 클릭되면 그 이름이 최근 유저가 되며 이름과 리스트는 자동적으로 업데이트 된다.
+
+```js
+const currentUserIDState = atom({
+  key: 'CurrentUserID',
+  default: null,
+});
+
+const userInfoQuery = selectorFamily({
+  key: 'UserInfoQuery',
+  get: (userID) => async () => {
+    const response = await myDBQuery({userID});
+    if (response.error) {
+      throw response.error;
+    }
+    return response;
+  },
+});
+
+const currentUserInfoQuery = selector({
+  key: 'CurrentUserInfoQuery',
+  get: ({get}) => get(userInfoQuery(get(currentUserIDState))),
+});
+
+const friendsInfoQuery = selector({
+  key: 'FriendsInfoQuery',
+  get: ({get}) => {
+    const {friendList} = get(currentUserInfoQuery);
+    return friendList.map((friendID) => get(userInfoQuery(friendID)));
+  },
+});
+
+function CurrentUserInfo() {
+  const currentUser = useRecoilValue(currentUserInfoQuery);
+  const friends = useRecoilValue(friendsInfoQuery);
+  const setCurrentUserID = useSetRecoilState(currentUserIDState);
+  return (
+    <div>
+      <h1>{currentUser.name}</h1>
+      <ul>
+        {friends.map((friend) => (
+          <li key={friend.id} onClick={() => setCurrentUserID(friend.id)}>
+            {friend.name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MyApp() {
+  return (
+    <RecoilRoot>
+      <ErrorBoundary>
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <CurrentUserInfo />
+        </React.Suspense>
+      </ErrorBoundary>
+    </RecoilRoot>
+  );
+}
+```
+
+### Concurrent Requests
+
+TODO:
+
+### Pre-Fetching
+
+TODO:
+
+### Query Default Atom Values
+
+TODO:
+
+### Async Queries Without React Suspense
+
+보류중인 비동기 selector를 다루기 위해서 React Suspense 대신 `useRecoilValueLoadable` 훅을 사용하여 렌더링 중 상태(status)를 확인할 수도 있다.
+
+```js
+function UserInfo({userID}) {
+  const userNameLoadable = useRecoilValueLoadable(userNameQuery(userID));
+  switch (userNameLoadable.state) {
+    case 'hasValue':
+      return <div>{userNameLoadable.contents}</div>;
+    case 'loading':
+      return <div>Loading...</div>;
+    case 'hasError':
+      throw userNameLoadable.contents;
+  }
+}
+```
+
+### Query Refresh
+
+TODO: 
